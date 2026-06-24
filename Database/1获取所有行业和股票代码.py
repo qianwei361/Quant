@@ -1,5 +1,8 @@
+import os
 import efinance as ef
 import json
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def get_all_stock_codes():
@@ -22,13 +25,13 @@ def save_to_json(data, filename):
 
 
 def main():
-    # 获取所有股票代码并保存
+    # 获取所有股票代码并保存（相对脚本目录，跨平台）
     all_stock_codes = get_all_stock_codes()
-    save_to_json(all_stock_codes, 'C:\QuantTrader\Database\stock_codes.json')
+    save_to_json(all_stock_codes, os.path.join(BASE_DIR, 'stock_codes.json'))
 
     # 获取行业板块股票代码并保存
     sector_stock_codes = get_sector_stock_codes()
-    save_to_json(sector_stock_codes, 'C:\QuantTrader\Database\sector_codes.json')
+    save_to_json(sector_stock_codes, os.path.join(BASE_DIR, 'sector_codes.json'))
 
 
 if __name__ == "__main__":

@@ -1,7 +1,11 @@
 import sys
+import os
 from PyQt6.QtWidgets import QApplication, QMainWindow, QTextEdit, QPushButton, QVBoxLayout, QWidget
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer
 import logging
+
+# 后台线程依赖的模块都在 TrendDipTrader/ 目录，将其加入模块搜索路径
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "TrendDipTrader"))
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -84,7 +88,7 @@ class MonitorThread(QThread):
         self.running = True
 
     def run(self):
-        from 每日修改记录缓存.main import stock_watcher_main
+        from main import stock_watcher_main
         logging.basicConfig(level=logging.INFO)
         handler = LoggingHandler(self.log_signal)
         logging.getLogger().addHandler(handler)

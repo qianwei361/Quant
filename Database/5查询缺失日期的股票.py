@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
+import os
 import pyodbc
 import pandas as pd
 import configparser
 
 
 def fetch_stocks_without_data_on_date(exclude_date, table_name):
-    # 从config.ini文件加载配置设置
+    # 从config.ini文件加载配置设置（相对脚本目录解析，跨平台）
     config = configparser.ConfigParser()
-    config.read('config.ini')
+    config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.ini'))
 
     # 从配置文件中读取数据库连接参数
     server = config['Stocks']['server']
