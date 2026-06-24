@@ -10,7 +10,17 @@ import numpy as np
 import os
 
 
-def read_config(config_path='config.ini'):
+BASE_DIR = os.path.dirname(__file__)
+
+
+def _resolve(path):
+    """将配置中的相对路径解析为相对本模块目录的绝对路径，跨平台。"""
+    return path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
+
+
+def read_config(config_path=None):
+    if config_path is None:
+        config_path = os.path.join(BASE_DIR, 'config.ini')
     config = ConfigParser()
     with open(config_path, 'r', encoding='utf-8') as configfile:
         config.read_file(configfile)
@@ -33,7 +43,7 @@ def save_stock_codes_to_json(stock_codes, filename):
 
 
 def update_stock_codes(config):
-    stock_codes_path = config.get('paths', 'stock_codes')
+    stock_codes_path = _resolve(config.get('paths', 'stock_codes'))
     stock_codes = get_all_stock_codes()
     save_stock_codes_to_json(stock_codes, stock_codes_path)
     print(f"股票代码已更新并保存到 {stock_codes_path}")
@@ -76,7 +86,7 @@ def fetch_and_compute(stock_code, database_url, table_name):
         print(f"股票代码 {stock_code} 无数据")
         return None
     except Exception as e:
-        print(f"处理股票代码 {stock_code} 时发生错误")
+        print(f"处理股票代码 {stock_code} 时发生错误: {e}")
         return None
 
 
@@ -91,8 +101,8 @@ def main():
 
     database_url = config.get('database', 'url')
 
-    stock_codes_path = config.get('paths', 'stock_codes')
-    sector_codes_path = config.get('paths', 'sector_codes')
+    stock_codes_path = _resolve(config.get('paths', 'stock_codes'))
+    sector_codes_path = _resolve(config.get('paths', 'sector_codes'))
 
     stock_info = [
         {"path": stock_codes_path, "table": "StockPriceHistory"},

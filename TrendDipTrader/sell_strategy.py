@@ -20,8 +20,9 @@ def get_sell_candidates(all_realtime_data, account_info):
 
             # 从行情数据中找到该股票的最新价格
             for stock in all_realtime_data.itertuples():
-                if stock_code == getattr(stock, '代码'):
-                    latest_price = safe_float_conversion(getattr(stock, '最新价'))
+                # 实时数据列名已通过 field_mappings 映射为英文
+                if stock_code == getattr(stock, 'code'):
+                    latest_price = safe_float_conversion(getattr(stock, 'latest_price'))
                     break
 
             # **检查数据有效性**

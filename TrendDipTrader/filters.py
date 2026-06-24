@@ -1,5 +1,6 @@
 # filters.py
 import logging
+import os
 from data_utils import safe_float_conversion
 import configparser
 
@@ -83,7 +84,7 @@ def filter_candidates(df_all):
 
 def filter_stocks(realtime_data, stocks_info, existing_stocks):
     config = configparser.ConfigParser()
-    config.read('config.ini', encoding='utf-8')
+    config.read(os.path.join(os.path.dirname(__file__), 'config.ini'), encoding='utf-8')
     field_mappings = dict(config['field_mappings'])
     realtime_data = realtime_data.rename(columns=field_mappings)
     stocks_info_dict = {info['股票代码']: info for info in stocks_info if info}

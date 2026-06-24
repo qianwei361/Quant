@@ -21,7 +21,7 @@ logging.basicConfig(
 DATABASE_URL = config.get("database", "url")
 engine = sqlalchemy.create_engine(DATABASE_URL)
 
-STOCK_CODES_PATH = config.get("paths", "stock_codes")
+STOCK_CODES_PATH = os.path.join(os.path.dirname(__file__), config.get("paths", "stock_codes"))
 
 
 @lru_cache(maxsize=1)
@@ -68,10 +68,12 @@ def safe_float_conversion(value):
 
 def is_within_trading_hours():
     now = datetime.now()
-    if now.weekday() < 7:
-        morning_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        morning_end = now.replace(hour=13, minute=30, second=0, microsecond=0)
-        afternoon_start = now.replace(hour=13, minute=30, second=0, microsecond=0)
-        afternoon_end = now.replace(hour=23, minute=59, second=0, microsecond=0)
+    # A 股交易日：周一(0)~周五(4)
+    if now.weekday() < 5:
+        # 上午 09:30-11:30，下午 13:00-15:00
+        morning_start = now.replace(hour=9, minute=30, second=0, microsecond=0)
+        morning_end = now.replace(hour=11, minute=30, second=0, microsecond=0)
+        afternoon_start = now.replace(hour=13, minute=0, second=0, microsecond=0)
+        afternoon_end = now.replace(hour=15, minute=0, second=0, microsecond=0)
         return (morning_start <= now <= morning_end) or (afternoon_start <= now <= afternoon_end)
     return False

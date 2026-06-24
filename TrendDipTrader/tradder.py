@@ -1,25 +1,34 @@
 # trader_app.py
+import os
 import pika
 import json
 import easytrader
 import logging
 import time
 import schedule
+import configparser
 
 # 设置日志格式
 logging.getLogger('pika').setLevel(logging.WARNING)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# 读取配置（与其它模块一致，统一来源 config.ini，避免硬编码与配置漂移）
+config = configparser.ConfigParser()
+config.read(os.path.join(os.path.dirname(__file__), "config.ini"), encoding="utf-8")
+
 # RabbitMQ 配置
-RABBITMQ_HOST = '8.138.82.182'
-RABBITMQ_PORT = 5672
-RABBITMQ_USER = 'Quant'
-RABBITMQ_PASSWORD = 'Qian_0822'
-QUEUE_NAME_ORDER = 'stock_orders'
-QUEUE_NAME_ACCOUNT = 'account_300323info'
+RABBITMQ_HOST = config.get("rabbitmq", "host")
+RABBITMQ_PORT = config.getint("rabbitmq", "port")
+RABBITMQ_USER = config.get("rabbitmq", "user")
+RABBITMQ_PASSWORD = config.get("rabbitmq", "password")
+QUEUE_NAME_ORDER = config.get("rabbitmq", "queue_orders")
+QUEUE_NAME_ACCOUNT = config.get("rabbitmq", "queue_account_info")
 
 # 账户标识符
-ACCOUNT_ID = "95091066"
+ACCOUNT_ID = config.get("account", "id")
+
+# 实盘下单总开关：false 时只记录信号不真正委托
+ENABLE_REAL_ORDERS = config.getboolean("trading", "enable_real_orders", fallback=True)
 
 # 账户缓存
 account_cache = {
@@ -30,11 +39,11 @@ account_cache = {
 
 # 初始化券商客户端
 def init_user():
-    user = easytrader.use('gj_client')
+    user = easytrader.use(config.get("account", "broker"))
     user.prepare(
         user=ACCOUNT_ID,
-        password="qw123456",
-        exe_path=r"C:\\同花顺远航版\\transaction\\xiadan.exe"
+        password=config.get("account", "password"),
+        exe_path=config.get("account", "exe_path")
     )
     user.enable_type_keys_for_editor()
     return user
@@ -125,15 +134,20 @@ def callback(ch, method, properties, body):
             held_stocks = {pos['证券代码']: pos for pos in account_cache.get("持仓状况", [])}
             if stock_code in held_stocks and held_stocks[stock_code]['股票余额'] > 0:
                 logging.info(f"已持有 {stock_code}，股票余额 {held_stocks[stock_code]['股票余额']}，跳过买入")
+            elif not ENABLE_REAL_ORDERS:
+                logging.info(f"[模拟] enable_real_orders=false，未真实买入：{stock_code}")
             else:
                 logging.info(f"买入：{stock_code}")
                 user.buy(stock_code, price=None, amount=None)
                 logging.info(f"成功买入 {stock_code}")
 
         elif action == "sell" and stock_code and account_id == ACCOUNT_ID:
-            logging.info(f"卖出：{stock_code}")
-            user.sell(stock_code, price=None, amount=None)
-            logging.info(f"成功卖出 {stock_code}")
+            if not ENABLE_REAL_ORDERS:
+                logging.info(f"[模拟] enable_real_orders=false，未真实卖出：{stock_code}")
+            else:
+                logging.info(f"卖出：{stock_code}")
+                user.sell(stock_code, price=None, amount=None)
+                logging.info(f"成功卖出 {stock_code}")
         else:
             logging.warning(f"无效的账户ID或 action: {message}，消息被忽略")
 

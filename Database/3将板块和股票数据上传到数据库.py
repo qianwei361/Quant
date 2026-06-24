@@ -4,17 +4,18 @@ from pathlib import Path
 import json
 import configparser
 
-# 从 config.ini 读取数据库连接参数和文件路径
+# 从 config.ini 读取数据库连接参数和文件路径（相对脚本目录解析，跨平台）
+BASE_DIR = Path(__file__).resolve().parent
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read(BASE_DIR / 'config.ini')
 
 server = config.get('Stocks', 'server')
 database = config.get('Stocks', 'database')
 username = config.get('Stocks', 'username')
 password = config.get('Stocks', 'password')
 driver = config.get('Stocks', 'driver')
-stock_folder_path = Path(config.get('Paths', 'stock_data_folder'))
-sector_folder_path = Path(config.get('Paths', 'sector_data_folder'))
+stock_folder_path = BASE_DIR / config.get('Paths', 'stock_data_folder')
+sector_folder_path = BASE_DIR / config.get('Paths', 'sector_data_folder')
 
 connection_string = f'DRIVER={{{driver}}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
 

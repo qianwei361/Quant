@@ -1,5 +1,6 @@
 # main.py
 import logging
+import os
 import time
 import efinance as ef
 import threading
@@ -16,11 +17,15 @@ logging.getLogger('pika').setLevel(logging.WARNING)
 
 def stock_watcher_main():
     config = configparser.ConfigParser()
-    config.read('config.ini', encoding='utf-8')
+    config.read(os.path.join(os.path.dirname(__file__), 'config.ini'), encoding='utf-8')
     field_mappings = dict(config['field_mappings'])
+    enable_real_orders = config.getboolean('trading', 'enable_real_orders', fallback=True)
+    logging.info(f"实盘下单开关 enable_real_orders = {enable_real_orders}")
     fetch_and_save_stock_codes()
     existing_stocks = set()
     pending_orders = set()
+    # 启动账户信息消费者线程，否则 request_account_info 的回复无人接收，持仓缓存永远为空
+    threading.Thread(target=start_account_info_consumer, daemon=True).start()
     request_account_info()
     all_stocks = get_all_stocks()
     logging.info(f"共计 {len(all_stocks)} 只股票，开始加载近 60 天历史数据...")
@@ -38,12 +43,17 @@ def stock_watcher_main():
                 all_realtime_data = all_realtime_data.rename(columns=field_mappings)
                 market_trend = calculate_market_trend(all_realtime_data)  # 调用新函数
 
-                if market_trend >= 0:
+                if market_trend is None:
+                    logging.warning("市场趋势数据不可用，本轮跳过买入")
+                elif market_trend >= 0:
                     new_stocks = filter_stocks(all_realtime_data, qualified_stocks_info, existing_stocks)
                     for stock_code, _ in new_stocks:
                         if stock_code not in pending_orders:
                             logging.info(f"买入：{stock_code}")
-                            # send_order_to_rabbitmq(stock_code, "buy")
+                            if enable_real_orders:
+                                send_order_to_rabbitmq(stock_code, "buy")
+                            else:
+                                logging.info(f"[模拟] enable_real_orders=false，未真实买入下单：{stock_code}")
                             pending_orders.add(stock_code)
                 else:
                     logging.info("上涨家数不足30%，不执行买入操作")
@@ -51,7 +61,7 @@ def stock_watcher_main():
                 account_info = get_account_info()
                 sell_candidates = get_sell_candidates(all_realtime_data, account_info)
 
-                if market_trend < 30:
+                if market_trend is not None and market_trend < 30:
                     for account_id, holdings in account_info.items():
                         for holding in holdings or []:
                             stock_code = holding.get('证券代码')
@@ -66,7 +76,10 @@ def stock_watcher_main():
                 for account_id, stock_code in sell_candidates:
                     if stock_code not in pending_orders:
                         logging.info(f"(账户ID={account_id}) 卖出：{stock_code}")
-                        send_order_to_rabbitmq(stock_code, "sell", account_id)
+                        if enable_real_orders:
+                            send_order_to_rabbitmq(stock_code, "sell", account_id)
+                        else:
+                            logging.info(f"[模拟] enable_real_orders=false，未真实卖出下单：{stock_code}")
                         pending_orders.add(stock_code)
 
                 holding_stocks = set()
@@ -85,5 +98,5 @@ def stock_watcher_main():
             time.sleep(60)
 
 if __name__ == "__main__":
-    threading.Thread(target=start_account_info_consumer, daemon=True).start()
+    # 账户信息消费者已在 stock_watcher_main 内部启动
     stock_watcher_main()
